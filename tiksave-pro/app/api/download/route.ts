@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { safeFilename } from '@/lib/utils';
-import { clientKey, isRateLimited } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,10 +35,6 @@ function disposition(filename: string) {
 }
 
 export async function GET(request: NextRequest) {
-  if (isRateLimited(`download:${clientKey(request)}`, 40, 60_000)) {
-    return NextResponse.json({ error: 'Too many downloads. Please wait a minute and try again.' }, { status: 429 });
-  }
-
   const rawFileUrl = request.nextUrl.searchParams.get('fileUrl') || '';
   const filename = request.nextUrl.searchParams.get('filename') || 'tiksave-archive.mp4';
   if (!rawFileUrl || rawFileUrl.length > 4096 || !safeRemoteUrl(rawFileUrl)) {
