@@ -32,16 +32,28 @@ function fileName(result: VideoResult, kind: 'HD' | 'Standard' | 'Audio') {
   return `TikSave-${creator}-${id}-${kind}.${kind === 'Audio' ? 'mp3' : 'mp4'}`;
 }
 
-function downloadMedia(fileUrl: string, filename: string) {
-  // Let the browser consume the API response as a streamed attachment.
-  // Do not fetch it into a Blob: that buffers the complete video in mobile RAM.
+async function downloadMedia(fileUrl: string, filename: string) {
+  // Validate the response before saving; never save API error JSON as media.
+  const response = await fetch(downloadHref(fileUrl, filename), {
+    method: 'GET', cache: 'no-store',
+    headers: { Accept: 'video/*,audio/*,application/octet-stream' },
+  });
+  const type = (response.headers.get('content-type') || '').toLowerCase();
+  if (!response.ok || type.includes('application/json') || type.startsWith('text/')) {
+    let message = `Download failed (HTTP ${response.status}).`;
+    try { const data = await response.json(); if (typeof data?.error === 'string') message = data.error; } catch {}
+    throw new Error(message);
+  }
+  if (!(type.startsWith('video/') || type.startsWith('audio/') || type.includes('octet-stream'))) {
+    throw new Error(`Unexpected response type: ${type || 'unknown'}. No file was saved.`);
+  }
+  const blob = await response.blob();
+  if (!blob.size) throw new Error('The media file is empty. No file was saved.');
+  const objectUrl = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
-  anchor.href = downloadHref(fileUrl, filename);
-  anchor.download = filename;
-  anchor.rel = 'noopener';
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
+  anchor.href = objectUrl; anchor.download = filename;
+  document.body.appendChild(anchor); anchor.click(); anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
 }
 
 function durationLabel(value: number | string) {
@@ -64,8 +76,8 @@ export default function DownloadTool() {
     const filename = fileName(result, kind);
     setDownloading(kind);
     try {
-      downloadMedia(fileUrl, filename);
-      toast.info('Download requested. Your browser will handle the streamed file.');
+      await downloadMedia(fileUrl, filename);
+      toast.success('Your media download has started.');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Download failed. Please retry.');
     } finally {
