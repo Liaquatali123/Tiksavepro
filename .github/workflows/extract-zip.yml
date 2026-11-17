@@ -21,18 +21,26 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check whether ZIP exists
+        id: zip
+        shell: bash
+        run: |
+          if [ -f "tiksave-pro.zip" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "ZIP is absent (likely already extracted and deleted); nothing to do."
+          fi
+
       - name: Extract ZIP safely
+        if: steps.zip.outputs.exists == 'true'
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile
-          import os
 
           archive = Path("tiksave-pro.zip")
-          if not archive.is_file():
-              raise SystemExit("tiksave-pro.zip was not found in the repository root.")
-
           root = Path(".").resolve()
           with ZipFile(archive) as zf:
               for info in zf.infolist():
@@ -40,16 +48,21 @@ jobs:
                   target = (root / name).resolve()
                   if target != root and root not in target.parents:
                       raise SystemExit(f"Unsafe ZIP path rejected: {info.filename}")
-                  if name.startswith(".git/") or name == ".git":
+                  if name == ".git" or name.startswith(".git/"):
                       continue
-                  if name.startswith(".github/workflows/"):
+                  if name == ".github/workflows" or name.startswith(".github/workflows/"):
                       continue
                   zf.extract(info, root)
 
           print("ZIP extraction completed.")
           PY
 
-      - name: Commit extracted files
+      - name: Delete uploaded ZIP
+        if: steps.zip.outputs.exists == 'true'
+        run: rm -f tiksave-pro.zip
+
+      - name: Commit extracted files and ZIP deletion
+        if: steps.zip.outputs.exists == 'true'
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
@@ -58,6 +71,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No extracted-file changes to commit."
           else
-            git commit -m "Extract project files from tiksave-pro.zip"
+            git commit -m "Extract project files and remove uploaded ZIP"
             git push
           fi
