@@ -32,36 +32,16 @@ function fileName(result: VideoResult, kind: 'HD' | 'Standard' | 'Audio') {
   return `TikSave-${creator}-${id}-${kind}.${kind === 'Audio' ? 'mp3' : 'mp4'}`;
 }
 
-async function downloadMedia(fileUrl: string, filename: string) {
-  const response = await fetch(downloadHref(fileUrl, filename), { method: 'GET', cache: 'no-store' });
-  const contentType = (response.headers.get('content-type') || '').toLowerCase();
-
-  if (!response.ok || contentType.includes('application/json') || contentType.startsWith('text/')) {
-    let message = `Download failed (HTTP ${response.status}). Please try again.`;
-    try {
-      const payload = await response.json();
-      if (typeof payload?.error === 'string') message = payload.error;
-    } catch { /* Keep the readable fallback message. */ }
-    throw new Error(message);
-  }
-
-  const isAudio = filename.toLowerCase().endsWith('.mp3');
-  const validMedia = contentType.startsWith('video/') || contentType.startsWith('audio/') ||
-    contentType.includes('octet-stream');
-  if (!validMedia) throw new Error('The server did not return a video/audio file. No incorrect JSON file was saved.');
-
-  const blob = await response.blob();
-  if (!blob.size) throw new Error('The downloaded file is empty. Please retry.');
-  const objectUrl = URL.createObjectURL(new Blob([blob], {
-    type: isAudio ? 'audio/mpeg' : (contentType.startsWith('video/') ? contentType : 'video/mp4'),
-  }));
+function downloadMedia(fileUrl: string, filename: string) {
+  // Let the browser consume the API response as a streamed attachment.
+  // Do not fetch it into a Blob: that buffers the complete video in mobile RAM.
   const anchor = document.createElement('a');
-  anchor.href = objectUrl;
+  anchor.href = downloadHref(fileUrl, filename);
   anchor.download = filename;
+  anchor.rel = 'noopener';
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
 }
 
 function durationLabel(value: number | string) {
