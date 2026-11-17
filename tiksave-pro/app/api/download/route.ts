@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 const ALLOWED_CDN_ROOTS = [
   'tiktok.com', 'tiktokcdn.com', 'tiktokcdn-us.com', 'tiktokcdn-eu.com',
   'tiktokv.com', 'tiktokv.us', 'byteoversea.com', 'ibytedtos.com',
-  'ibyteimg.com', 'muscdn.com',
+  'ibyteimg.com', 'muscdn.com', 'tokcdn.com',
 ];
 const MAX_BYTES = 300 * 1024 * 1024;
 const MAX_REDIRECTS = 4;
