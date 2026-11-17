@@ -64,8 +64,8 @@ export default function DownloadTool() {
     const filename = fileName(result, kind);
     setDownloading(kind);
     try {
-      await downloadMedia(fileUrl, filename);
-      toast.success(`${filename} download started.`);
+      downloadMedia(fileUrl, filename);
+      toast.info('Download requested. Your browser will handle the streamed file.');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Download failed. Please retry.');
     } finally {
