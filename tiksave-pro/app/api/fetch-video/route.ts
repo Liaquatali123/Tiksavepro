@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isTikTokPageUrl } from '@/lib/utils';
-import { clientKey, isRateLimited } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -69,10 +68,6 @@ function normalizePayload(payload: unknown) {
 }
 
 export async function POST(request: NextRequest) {
-  if (isRateLimited(`fetch:${clientKey(request)}`, 20, 60_000)) {
-    return NextResponse.json({ error: 'Too many requests. Please wait a minute and try again.' }, { status: 429 });
-  }
-
   const contentLength = Number(request.headers.get('content-length') || 0);
   if (contentLength > 4096) return NextResponse.json({ error: 'Request is too large.' }, { status: 413 });
 
