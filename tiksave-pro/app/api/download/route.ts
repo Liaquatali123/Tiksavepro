@@ -37,8 +37,27 @@ function disposition(filename: string) {
 export async function GET(request: NextRequest) {
   const rawFileUrl = request.nextUrl.searchParams.get('fileUrl') || '';
   const filename = request.nextUrl.searchParams.get('filename') || 'tiksave-archive.mp4';
-  if (!rawFileUrl || rawFileUrl.length > 4096 || !safeRemoteUrl(rawFileUrl)) {
-    return NextResponse.json({ error: 'A supported secure media URL is required.' }, { status: 400 });
+  if (!rawFileUrl || rawFileUrl.length > 4096) {
+    return NextResponse.json({ error: 'A media URL is required.' }, { status: 400 });
+  }
+  let submittedUrl: URL;
+  try {
+    submittedUrl = new URL(rawFileUrl);
+  } catch {
+    return NextResponse.json({ error: 'The media URL is invalid.' }, { status: 400 });
+  }
+  if (submittedUrl.protocol !== 'https:') {
+    return NextResponse.json({ error: 'The media URL must use HTTPS.' }, { status: 400 });
+  }
+  if (submittedUrl.username || submittedUrl.password || (submittedUrl.port && submittedUrl.port !== '443')) {
+    return NextResponse.json({ error: 'The media URL contains an unsupported address or port.' }, { status: 400 });
+  }
+  if (!isAllowedCdn(submittedUrl.hostname)) {
+    // Report only the hostname, never the signed URL or its query parameters.
+    return NextResponse.json(
+      { error: `Unsupported TikTok media CDN host: ${submittedUrl.hostname}. Add this verified TikTok CDN host to the server allowlist.` },
+      { status: 400 },
+    );
   }
 
   // Forward valid byte ranges so mobile browsers can resume large downloads.
