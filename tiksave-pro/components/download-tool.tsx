@@ -32,28 +32,17 @@ function fileName(result: VideoResult, kind: 'HD' | 'Standard' | 'Audio') {
   return `TikSave-${creator}-${id}-${kind}.${kind === 'Audio' ? 'mp3' : 'mp4'}`;
 }
 
-async function downloadMedia(fileUrl: string, filename: string) {
-  // Validate the response before saving; never save API error JSON as media.
-  const response = await fetch(downloadHref(fileUrl, filename), {
-    method: 'GET', cache: 'no-store',
-    headers: { Accept: 'video/*,audio/*,application/octet-stream' },
-  });
-  const type = (response.headers.get('content-type') || '').toLowerCase();
-  if (!response.ok || type.includes('application/json') || type.startsWith('text/')) {
-    let message = `Download failed (HTTP ${response.status}).`;
-    try { const data = await response.json(); if (typeof data?.error === 'string') message = data.error; } catch {}
-    throw new Error(message);
-  }
-  if (!(type.startsWith('video/') || type.startsWith('audio/') || type.includes('octet-stream'))) {
-    throw new Error(`Unexpected response type: ${type || 'unknown'}. No file was saved.`);
-  }
-  const blob = await response.blob();
-  if (!blob.size) throw new Error('The media file is empty. No file was saved.');
-  const objectUrl = URL.createObjectURL(blob);
+// Use the browser's native download manager. Fetching the entire media into a
+// Blob first can exhaust memory or be killed by Android for large videos.
+function downloadMedia(fileUrl: string, filename: string) {
   const anchor = document.createElement('a');
-  anchor.href = objectUrl; anchor.download = filename;
-  document.body.appendChild(anchor); anchor.click(); anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+  anchor.href = downloadHref(fileUrl, filename);
+  anchor.download = filename;
+  anchor.rel = 'noopener';
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
 }
 
 function durationLabel(value: number | string) {
@@ -71,17 +60,17 @@ export default function DownloadTool() {
   const [downloading, setDownloading] = useState<string | null>(null);
   const reduceMotion = useReducedMotion();
 
-  async function startDownload(fileUrl: string, kind: 'HD' | 'Standard' | 'Audio') {
+  function startDownload(fileUrl: string, kind: 'HD' | 'Standard' | 'Audio') {
     if (!result || downloading) return;
     const filename = fileName(result, kind);
     setDownloading(kind);
     try {
-      await downloadMedia(fileUrl, filename);
-      toast.success('Your media download has started.');
+      downloadMedia(fileUrl, filename);
+      toast.info('Download request sent. Check your browser Downloads.');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Download failed. Please retry.');
+      toast.error(error instanceof Error ? error.message : 'Could not start the download. Please retry.');
     } finally {
-      setDownloading(null);
+      window.setTimeout(() => setDownloading(null), 1200);
     }
   }
 
@@ -113,6 +102,7 @@ export default function DownloadTool() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: trimmed }),
+        signal: AbortSignal.timeout(25_000),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || 'We could not fetch this post. Check the URL and try again.');
@@ -121,7 +111,10 @@ export default function DownloadTool() {
       setAvatarFailed(false);
       toast.success('Your archive options are ready.');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
+      const message = error instanceof Error && error.name === 'TimeoutError'
+        ? 'The provider took too long to respond. Please retry.'
+        : error instanceof Error ? error.message : 'Something went wrong. Please try again.';
+      toast.error(message);
     } finally {
       setBusy(false);
     }
@@ -140,7 +133,7 @@ export default function DownloadTool() {
         <button type="button" onClick={pasteLink}
           className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-white/10 px-4 text-sm font-semibold text-zinc-200 transition hover:bg-white/10"><ClipboardPaste size={16} /> Paste</button>
         <button type="submit" disabled={busy}
-          className="gradient-button inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl px-5 text-sm">
+          className="gradient-button inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl px-5 text-sm disabled:cursor-wait disabled:opacity-70">
           {busy ? <><LoaderCircle size={17} className="animate-spin" /> Fetching</> : <>Fetch Video <span aria-hidden="true">→</span></>}
         </button>
       </form>
@@ -174,15 +167,15 @@ export default function DownloadTool() {
                 <div className="mt-5 grid gap-2.5">
                   {result.hdplay && <button type="button" disabled={!!downloading} onClick={() => startDownload(result.hdplay, 'HD')}
                     className="gradient-button inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 text-center text-sm disabled:opacity-60">
-                    {downloading === 'HD' ? <LoaderCircle size={17} className="animate-spin" /> : <Download size={17} />} {downloading === 'HD' ? 'Preparing download…' : 'Download MP4 (HD • No Watermark)'}
+                    {downloading === 'HD' ? <LoaderCircle size={17} className="animate-spin" /> : <Download size={17} />} {downloading === 'HD' ? 'Starting…' : 'Download MP4 (HD • No Watermark)'}
                   </button>}
                   {result.play && <button type="button" disabled={!!downloading} onClick={() => startDownload(result.play, 'Standard')}
                     className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 text-center text-sm font-semibold text-zinc-100 transition hover:bg-white/10 disabled:opacity-60">
-                    {downloading === 'Standard' ? <LoaderCircle size={17} className="animate-spin" /> : <Download size={17} />} {downloading === 'Standard' ? 'Preparing download…' : 'Download MP4 (Standard)'}
+                    {downloading === 'Standard' ? <LoaderCircle size={17} className="animate-spin" /> : <Download size={17} />} {downloading === 'Standard' ? 'Starting…' : 'Download MP4 (Standard)'}
                   </button>}
                   {result.music && <button type="button" disabled={!!downloading} onClick={() => startDownload(result.music, 'Audio')}
                     className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-cyan-300/40 px-4 text-center text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/10 disabled:opacity-60">
-                    {downloading === 'Audio' ? <LoaderCircle size={17} className="animate-spin" /> : <AudioLines size={17} />} {downloading === 'Audio' ? 'Preparing download…' : 'Extract Audio (MP3)'}
+                    {downloading === 'Audio' ? <LoaderCircle size={17} className="animate-spin" /> : <AudioLines size={17} />} {downloading === 'Audio' ? 'Starting…' : 'Extract Audio (MP3)'}
                   </button>}
                 </div>
                 <p className="mt-4 flex items-start gap-2 text-xs leading-5 text-zinc-500"><ShieldCheck size={15} className="mt-0.5 shrink-0 text-cyan-300" /> Keep this copy for a use you’re authorized to make. Original creator and music rights remain with their respective owners.</p>
