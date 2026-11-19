@@ -169,7 +169,7 @@ export default function DownloadTool() {
                     className="gradient-button inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 text-center text-sm disabled:opacity-60">
                     {downloading === 'HD' ? <LoaderCircle size={17} className="animate-spin" /> : <Download size={17} />} {downloading === 'HD' ? 'Starting…' : 'Download MP4 (HD • No Watermark)'}
                   </button>}
-                  {result.play && <button type="button" disabled={!!downloading} onClick={() => startDownload(result.play, 'Standard')}
+                  {result.play && result.play !== result.hdplay && <button type="button" disabled={!!downloading} onClick={() => startDownload(result.play, 'Standard')}
                     className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 text-center text-sm font-semibold text-zinc-100 transition hover:bg-white/10 disabled:opacity-60">
                     {downloading === 'Standard' ? <LoaderCircle size={17} className="animate-spin" /> : <Download size={17} />} {downloading === 'Standard' ? 'Starting…' : 'Download MP4 (Standard)'}
                   </button>}
