@@ -89,10 +89,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Enter a valid HTTPS TikTok post URL.' }, { status: 400 });
   }
 
-  const apiKey = process.env.RAPIDAPI_KEY;
+  const apiKey = (process.env.RAPIDAPI_ACCESS_TOKEN || process.env.RAPIDAPI_KEY || '').trim();
   const host = process.env.RAPIDAPI_HOST || 'tiktok-video-no-watermark2.p.rapidapi.com';
   if (!apiKey) {
-    return NextResponse.json({ error: 'Video fetching is not configured. Add RAPIDAPI_KEY in Vercel Environment Variables.' }, { status: 503 });
+    return NextResponse.json({ error: 'Video fetching is not configured. Set RAPIDAPI_ACCESS_TOKEN in the project environment.' }, { status: 503 });
   }
   if (!/^[a-z0-9.-]+\.p\.rapidapi\.com$/i.test(host)) {
     return NextResponse.json({ error: 'The video provider configuration is invalid.' }, { status: 500 });
@@ -100,18 +100,17 @@ export async function POST(request: NextRequest) {
 
   try {
     const endpoint = new URL(`https://${host}/`);
-    endpoint.searchParams.set('url', videoUrl);
-    endpoint.searchParams.set('hd', '1');
-
     const upstream = await fetch(endpoint, {
-      method: 'GET',
+      method: 'POST',
       cache: 'no-store',
       signal: AbortSignal.timeout(20_000),
       headers: {
         'X-RapidAPI-Host': host,
         'X-RapidAPI-Key': apiKey,
+        'Content-Type': 'application/x-www-form-urlencoded',
         Accept: 'application/json',
       },
+      body: new URLSearchParams({ url: videoUrl, hd: '1' }),
     });
 
     const responseText = await upstream.text();
