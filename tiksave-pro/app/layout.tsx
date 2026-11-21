@@ -19,6 +19,7 @@ export const metadata: Metadata = {
   openGraph: { type: 'website', siteName: SITE_NAME, title: `${SITE_NAME} | Creator backup & TikTok saver`, description: SITE_DESCRIPTION, url: SITE_URL },
   twitter: { card: 'summary_large_image', title: `${SITE_NAME} | Creator backup & TikTok saver`, description: SITE_DESCRIPTION },
   robots: { index: true, follow: true },
+  verification: { google: 'tF8DoT3xFvCGRBa3q2V2HqRw4haxB-THtyFn946WUMg' },
   other: { 'google-adsense-account': 'ca-pub-4355330129692598' },
 };
 export const viewport: Viewport = { themeColor: '#09090B', width: 'device-width', initialScale: 1 };
